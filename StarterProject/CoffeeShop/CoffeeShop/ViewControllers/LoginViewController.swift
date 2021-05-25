@@ -16,6 +16,7 @@ class LoginViewController: UIViewController {
   @IBOutlet private weak var logInButton: UIButton!
     
     private let disposeBag = DisposeBag()
+    private let throtteInterval = 0.1
   
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -24,9 +25,27 @@ class LoginViewController: UIViewController {
         .rx
         .text
         .orEmpty
+        .throttle(throtteInterval, scheduler: MainScheduler.instance)
         .map{self.validateEmail(with: $0)}
         .debug("emailValid",trimOutput: true)
         .share(replay: 1)
+    let passwordValid = passwordTextfield
+        .rx
+        .text
+        .orEmpty
+        .throttle(throtteInterval, scheduler: MainScheduler.instance)
+        .map{$0.count >= 6}
+        .debug("passwordValid", trimOutput: true)
+        .share(replay: 1)
+    
+    let everythingValid = Observable
+        .combineLatest(emailValid, passwordValid) { $0 && $1 }
+        .debug("everythingValid", trimOutput: true)
+        .share(replay: 1)
+    
+    everythingValid
+        .bind(to: logInButton.rx.isEnabled)
+        .disposed(by: disposeBag)
   }
   
   @IBAction private func logInButtonPressed() {

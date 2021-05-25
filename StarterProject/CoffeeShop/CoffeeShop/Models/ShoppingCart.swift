@@ -7,36 +7,45 @@
 //
 
 import Foundation
+import RxSwift
+import RxCocoa
 
 class ShoppingCart {
   
   static let shared = ShoppingCart()
   
-  var coffees: [Coffee: Int] = [:]
+    var coffees: BehaviorRelay<[Coffee: Int]> = .init(value: [:]) //1
   
   private init() {}
   
   func addCoffee(_ coffee: Coffee, withCount count: Int) {
-    if let currentCount = coffees[coffee] {
-      coffees[coffee] = currentCount + count
+    var tempCoffees = coffees.value //2
+    
+    if let currentCount = tempCoffees[coffee] {
+        tempCoffees[coffee] = currentCount + count
     } else {
-      coffees[coffee] = count
+        tempCoffees[coffee] = count
     }
+    
+    coffees.accept(tempCoffees) //3
   }
   
   func removeCoffee(_ coffee: Coffee) {
-    coffees[coffee] = nil
+    var tempCoffees = coffees.value //4
+    tempCoffees[coffee] = nil
+    
+    coffees.accept(tempCoffees) //5
   }
   
-  func getTotalCost() -> Float {
-    return coffees.reduce(Float(0)) { $0 + ($1.key.price * Float($1.value)) }
+  func getTotalCost() -> Observable<Float> { //6
+    return coffees.map { $0.reduce(Float(0)) { $0 + ($1.key.price * Float($1.value)) }} //7
   }
   
-  func getTotalCount() -> Int {
-    return coffees.reduce(0) { $0 + $1.value }
+  func getTotalCount() -> Observable<Int> { //8
+    return coffees.map { $0.reduce(0) { $0 + $1.value }} //9
   }
   
-  func getCartItems() -> [CartItem] {
-    return coffees.map { CartItem(coffee: $0.key, count: $0.value) }
+  func getCartItems() -> Observable<[CartItem]> { //10
+    return coffees.map { $0.map { CartItem(coffee: $0.key, count: $0.value) }} //11
   }
 }
