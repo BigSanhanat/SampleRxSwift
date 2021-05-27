@@ -7,6 +7,8 @@
 //
 
 import UIKit
+import RxCocoa
+import RxSwift
 
 class OrderCoffeeViewController: BaseViewController {
   @IBOutlet private weak var coffeeIconImageView: UIImageView!
@@ -18,18 +20,19 @@ class OrderCoffeeViewController: BaseViewController {
   @IBOutlet private weak var totalPrice: UILabel!
   @IBOutlet private weak var addToCartButton: UIButton!
   
+    private let disposeBag = DisposeBag()
+    
   var coffee: Coffee!
-  var totalOrder: Int = 0 {
-    didSet {
-      if viewIfLoaded != nil {
-        orderCountLabel.text = "\(totalOrder)"
-        totalPrice.text = CurrencyFormatter.turkishLirasFormatter.string(from: Float(totalOrder) * coffee.price)
-      }
-    }
-  }
+    var totalOrder: BehaviorRelay<Int> = .init(value: 0)
   
   override func viewDidLoad() {
     super.viewDidLoad()
+    
+    totalOrder.subscribe(onNext: {[weak self] totalOrderCount in
+        self?.orderCountLabel.text = "\(totalOrderCount)"
+        self?.totalPrice.text = CurrencyFormatter.turkishLirasFormatter.string(from: Float(totalOrderCount) * (self?.coffee.price ?? 0))
+    })
+    .disposed(by: disposeBag)
     
     populateUI()
   }
@@ -40,23 +43,29 @@ class OrderCoffeeViewController: BaseViewController {
     coffeeNameLabel.text = coffee.name
     coffeeIconImageView.image = UIImage(named: coffee.icon)
     coffeePriceLabel.text = CurrencyFormatter.turkishLirasFormatter.string(from: coffee.price)
-    totalOrder = 0
+//    totalOrder = 0
   }
   
   @IBAction private func addButtonPressed() {
-    totalOrder += 1
+    var order = totalOrder.value
+    order += 1
+    
+    totalOrder.accept(order)
   }
   
   @IBAction private func removeButtonPressed() {
-    guard totalOrder > 0 else { return }
+    guard totalOrder.value > 0 else { return }
     
-    totalOrder -= 1
+    var order = totalOrder.value
+    order -= 1
+    
+    totalOrder.accept(order)
   }
   
   @IBAction private func addToCartButtonPressed() {
     guard let coffee = coffee else { return }
     
-    ShoppingCart.shared.addCoffee(coffee, withCount: totalOrder)
+    ShoppingCart.shared.addCoffee(coffee, withCount: totalOrder.value)
     
     navigationController?.popViewController(animated: true)
   }
